@@ -33,4 +33,5 @@ cc_binary {
         "android.hardware.thermal@1.1",
     ],
     init_rc: ["android.hardware.thermal@1.1-service.renesas.rc"],
+    vintf_fragments: ["android.hardware.thermal@1.1-service.renesas.xml"],
 }
