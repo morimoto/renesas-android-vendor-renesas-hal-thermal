@@ -46,12 +46,8 @@ namespace renesas {
 
 sp<IThermalCallback> Thermal::sThermalCb;
 
-namespace {
-
-float finalizeTemperature(float temperature) {
-    return temperature == UNKNOWN_TEMPERATURE ? NAN : temperature;
-}
-
+static float finalizeTemperature(float temperature) {
+    return (temperature == UNKNOWN_TEMPERATURE) ? NAN : temperature;
 }
 
 Thermal::Thermal() {}
@@ -65,13 +61,13 @@ Return<void> Thermal::getTemperatures(getTemperatures_cb _hidl_cb) {
 
     char file_name[MAX_LENGTH];
     FILE *file;
-    float temp;
-    char name [TEMP_NAME_LENGTH];
+    float temp = 0.f;
+    char name [TEMP_NAME_LENGTH] = {0};
     DIR *dir;
     struct dirent *de;
 
     dir = opendir(TEMPERATURE_DIR);
-    if (dir == 0) {
+    if (dir == nullptr) {
         ALOGE("%s: failed to open directory %s: %s", __func__, TEMPERATURE_DIR, strerror(-errno));
         status.code = V1_0::ThermalStatusCode::FAILURE;
         _hidl_cb(status, temperatures);
@@ -82,7 +78,7 @@ Return<void> Thermal::getTemperatures(getTemperatures_cb _hidl_cb) {
         if (!strncmp(de->d_name, THERMAL_DIR, strlen(THERMAL_DIR))) {
             snprintf(file_name, MAX_LENGTH, "%s/%s/temp", TEMPERATURE_DIR, de->d_name);
             file = fopen(file_name, "r");
-            if (file == NULL) {
+            if (file == nullptr) {
                 continue;
             }
             if (1 != fscanf(file, "%f", &temp)) {
@@ -100,8 +96,8 @@ Return<void> Thermal::getTemperatures(getTemperatures_cb _hidl_cb) {
 
             Temperature temperature;
             temperature.type = V1_0::TemperatureType::CPU;
-            temperature.name = name;
-            temperature.currentValue = temp/1000,
+            temperature.name = std::string(name);
+            temperature.currentValue = temp / 1000.f;
             temperature.throttlingThreshold = finalizeTemperature(THROTTLING_THRESHOLD);
             temperature.shutdownThreshold = finalizeTemperature(SHUTDOWN_THRESHOLD);
             temperature.vrThrottlingThreshold = finalizeTemperature(UNKNOWN_TEMPERATURE);
@@ -113,7 +109,7 @@ Return<void> Thermal::getTemperatures(getTemperatures_cb _hidl_cb) {
 
     if (temperatures.size() == 0) {
         status.code = V1_0::ThermalStatusCode::FAILURE;
-        status.debugMessage = strerror(-temperatures.size());
+        status.debugMessage = strerror(-ENOENT);
     }
     temperatures_reply.setToExternal(temperatures.data(), temperatures.size());
     _hidl_cb(status, temperatures_reply);
@@ -126,18 +122,17 @@ Return<void> Thermal::getCpuUsages(getCpuUsages_cb _hidl_cb) {
     std::vector<CpuUsage> cpuUsages;
     status.code = V1_0::ThermalStatusCode::SUCCESS;
 
-    int vals, cpu_num, online;
+    int vals, cpu_num, online = 0;
     ssize_t read;
     uint64_t user, nice, system, idle, active, total;
-    char *line = NULL;
+    char *line = nullptr;
     size_t len = 0;
-    size_t size = 0;
     char file_name[MAX_LENGTH];
     char cpu_name[5];
     FILE *cpu_file;
     FILE *file = fopen(CPU_USAGE_FILE, "r");
 
-    if (file == NULL) {
+    if (file == nullptr) {
         ALOGE("%s: failed to open: %s", __func__, strerror(errno));
          _hidl_cb(status, cpuUsages);
         return Void();
@@ -147,7 +142,7 @@ Return<void> Thermal::getCpuUsages(getCpuUsages_cb _hidl_cb) {
         // Skip non "cpu[0-9]" lines.
         if (strnlen(line, read) < 4 || strncmp(line, "cpu", 3) != 0 || !isdigit(line[3])) {
             free(line);
-            line = NULL;
+            line = nullptr;
             len = 0;
             continue;
         }
@@ -155,7 +150,7 @@ Return<void> Thermal::getCpuUsages(getCpuUsages_cb _hidl_cb) {
                 &nice, &system, &idle);
 
         free(line);
-        line = NULL;
+        line = nullptr;
         len = 0;
 
         if (vals != 5) {
@@ -175,8 +170,8 @@ Return<void> Thermal::getCpuUsages(getCpuUsages_cb _hidl_cb) {
         cpu_file = fopen(file_name, "r");
         online = 0;
 
-        snprintf(cpu_name, 5, "CPU%d", cpu_num);
-        if (cpu_file == NULL) {
+        snprintf(cpu_name, sizeof(cpu_name), "CPU%d", cpu_num);
+        if (cpu_file == nullptr) {
             ALOGE("%s: failed to open file: %s (%s)", __func__, file_name, strerror(errno));
             online = cpu_num == 0;
         } else if (1 != fscanf(cpu_file, "%d", &online)) {
@@ -196,7 +191,7 @@ Return<void> Thermal::getCpuUsages(getCpuUsages_cb _hidl_cb) {
         usage.name = cpu_name;
         usage.active = active;
         usage.total = total;
-        usage.isOnline = online;
+        usage.isOnline = (online != 0) ? true : false;
         cpuUsages.push_back(usage);
     }
     cpuUsages_reply.setToExternal(cpuUsages.data(), cpuUsages.size());
@@ -225,7 +220,7 @@ Return<void> Thermal::registerThermalCallback(const sp<IThermalCallback>& callba
     Temperature temperature;
     temperature.type = V1_0::TemperatureType::CPU;
     temperature.name = "thermal";
-    temperature.currentValue = NAN,
+    temperature.currentValue = finalizeTemperature(UNKNOWN_TEMPERATURE);
     temperature.throttlingThreshold = finalizeTemperature(THROTTLING_THRESHOLD);
     temperature.shutdownThreshold = finalizeTemperature(SHUTDOWN_THRESHOLD);
     temperature.vrThrottlingThreshold = finalizeTemperature(UNKNOWN_TEMPERATURE);
