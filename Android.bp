@@ -29,7 +29,6 @@ cc_binary {
         "libcutils",
         "libutils",
         "libhidlbase",
-        "libhidltransport",
         "android.hardware.thermal@1.1",
     ],
     init_rc: ["android.hardware.thermal@1.1-service.renesas.rc"],
