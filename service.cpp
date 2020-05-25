@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,25 +17,47 @@
 #define LOG_TAG "ThermalHAL"
 
 #include <android-base/logging.h>
-#include <android/hardware/thermal/1.1/IThermal.h>
-#include <hidl/HidlSupport.h>
 #include <hidl/HidlTransportSupport.h>
-
 #include "Thermal.h"
 
-using android::hardware::configureRpcThreadpool;
-using android::hardware::joinRpcThreadpool;
+using ::android::OK;
+using ::android::status_t;
 
-using android::hardware::thermal::V1_1::IThermal;
-using namespace android::hardware::thermal::V1_1::renesas;
+// libhwbinder:
+using ::android::hardware::configureRpcThreadpool;
+using ::android::hardware::joinRpcThreadpool;
 
-int main() {
-    android::sp<IThermal> thermal_hal = new Thermal;
+// Generated HIDL files:
+using ::android::hardware::thermal::V2_0::IThermal;
+using ::android::hardware::thermal::V2_0::renesas::Thermal;
 
-    configureRpcThreadpool(1, true);
+static int shutdown() {
+    LOG(ERROR) << "Thermal Service is shutting down.";
+    return 1;
+}
 
-    const auto status = thermal_hal->registerAsService();
-    CHECK_EQ(status, android::OK) << "Failed to register IThermal";
+int main(int /* argc */, char** /* argv */) {
+    status_t status;
+    android::sp<IThermal> service = nullptr;
 
+    LOG(INFO) << "Thermal HAL Service 2.0 starting...";
+
+    service = new Thermal();
+    if (service == nullptr) {
+        LOG(ERROR) << "Error creating an instance of ThermalHAL.  Exiting...";
+        return shutdown();
+    }
+
+    configureRpcThreadpool(1, true /* callerWillJoin */);
+
+    status = service->registerAsService();
+    if (status != OK) {
+        LOG(ERROR) << "Could not register service for ThermalHAL (" << status << ")";
+        return shutdown();
+    }
+
+    LOG(INFO) << "Thermal Service started successfully.";
     joinRpcThreadpool();
+    // We should not get past the joinRpcThreadpool().
+    return shutdown();
 }

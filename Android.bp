@@ -14,9 +14,10 @@
 // limitations under the License.
 
 cc_binary {
-    name: "android.hardware.thermal@1.1-service.renesas",
-    proprietary: true,
+    name: "android.hardware.thermal@2.0-service.renesas",
+    defaults: ["hidl_defaults"],
     relative_install_path: "hw",
+    vendor: true,
     srcs: [
         "service.cpp",
         "Thermal.cpp"
@@ -26,11 +27,14 @@ cc_binary {
         "libcutils",
         "libhardware",
         "libbase",
-        "libcutils",
         "libutils",
         "libhidlbase",
-        "android.hardware.thermal@1.1",
+        "android.hardware.thermal@2.0",
+        "android.hardware.thermal@1.0",
     ],
-    init_rc: ["android.hardware.thermal@1.1-service.renesas.rc"],
-    vintf_fragments: ["android.hardware.thermal@1.1-service.renesas.xml"],
+    static_libs: [
+        "android.hardware.automotive@libc++fs",
+    ],
+    init_rc: ["android.hardware.thermal@2.0-service.renesas.rc"],
+    vintf_fragments: ["android.hardware.thermal@2.0-service.renesas.xml"],
 }
